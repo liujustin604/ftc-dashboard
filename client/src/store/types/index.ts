@@ -86,9 +86,18 @@ export {
   RECEIVE_HARDWARE_CONFIG_LIST,
 } from './hardwareconfig';
 export type {
+  HardwareConfigState,
   SetHardwareConfigAction,
   ReceiveHardwareConfigListAction,
 } from './hardwareconfig';
+
+export { RECEIVE_LOGCAT_ERRORS, CLEAR_LOGCAT_ERRORS } from './logcat';
+export type {
+  LogcatError,
+  LogcatState,
+  ReceiveLogcatErrorsAction,
+  ClearLogcatErrorsAction,
+} from './logcat';
 
 export { SET_REPLAY_OVERLAY } from './replay';
 export type { SetReplayOverlayAction } from './replay';

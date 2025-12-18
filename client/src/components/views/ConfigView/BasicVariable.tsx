@@ -69,6 +69,7 @@ class BasicVariable extends React.Component<Props> {
               valid={state.__valid}
               validate={validateInt}
               onChange={onChange}
+              showArrows={true}
               onSave={onSave}
             />
           );
@@ -91,6 +92,7 @@ class BasicVariable extends React.Component<Props> {
                   valid={state.__valid}
                   validate={validateDouble}
                   onChange={onChange}
+                  showArrows={true}
                   onSave={onSave}
                 />
                 {state.__valid && (
@@ -116,6 +118,19 @@ class BasicVariable extends React.Component<Props> {
               validate={validateString}
               onChange={onChange}
               onSave={onSave}
+            />
+          );
+          break;
+        case 'readonly_string':
+          input = (
+            <TextInput
+              id={path}
+              value={state.__newValue as number | string}
+              valid={state.__valid}
+              validate={validateString}
+              onChange={onChange}
+              onSave={onSave}
+              readOnly={true}
             />
           );
           break;

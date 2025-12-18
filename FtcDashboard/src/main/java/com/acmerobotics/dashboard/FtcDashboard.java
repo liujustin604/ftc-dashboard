@@ -16,24 +16,23 @@ import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 
-import com.acmerobotics.dashboard.config.Config;
 import com.acmerobotics.dashboard.config.ValueProvider;
-import com.acmerobotics.dashboard.config.reflection.ReflectionConfig;
 import com.acmerobotics.dashboard.config.variable.CustomVariable;
 import com.acmerobotics.dashboard.message.Message;
 import com.acmerobotics.dashboard.message.redux.InitOpMode;
 import com.acmerobotics.dashboard.message.redux.ReceiveGamepadState;
 import com.acmerobotics.dashboard.message.redux.ReceiveHardwareConfigList;
 import com.acmerobotics.dashboard.message.redux.ReceiveImage;
+import com.acmerobotics.dashboard.message.redux.ReceiveLogcatErrors;
 import com.acmerobotics.dashboard.message.redux.ReceiveOpModeList;
 import com.acmerobotics.dashboard.message.redux.ReceiveRobotStatus;
 import com.acmerobotics.dashboard.message.redux.SetHardwareConfig;
 import com.acmerobotics.dashboard.telemetry.TelemetryPacket;
 import com.qualcomm.ftccommon.FtcEventLoop;
 import com.qualcomm.ftccommon.configuration.RobotConfigFile;
+import com.qualcomm.ftccommon.configuration.RobotConfigFileManager;
 import com.qualcomm.hardware.limelightvision.Limelight3A;
 import com.qualcomm.hardware.lynx.LynxModule;
-import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.OpModeManager;
@@ -44,49 +43,7 @@ import com.qualcomm.robotcore.util.RobotLog;
 import com.qualcomm.robotcore.util.ThreadPool;
 import com.qualcomm.robotcore.util.WebHandlerManager;
 import com.qualcomm.robotcore.util.WebServer;
-import com.qualcomm.ftccommon.configuration.RobotConfigFileManager;
-import dalvik.system.DexFile;
-import dev.frozenmilk.sinister.Scanner;
-import dev.frozenmilk.sinister.loading.Preload;
-import dev.frozenmilk.sinister.sdk.apphooks.OnCreate;
-import dev.frozenmilk.sinister.sdk.apphooks.OnCreateEventLoop;
-import dev.frozenmilk.sinister.sdk.apphooks.OnCreateMenu;
-import dev.frozenmilk.sinister.sdk.apphooks.OnDestroy;
-import dev.frozenmilk.sinister.sdk.apphooks.SDKOpModeRegistrar;
-import dev.frozenmilk.sinister.sdk.apphooks.SinisterOpModeRegistrar;
-import dev.frozenmilk.sinister.sdk.apphooks.SinisterOpModeRegistrarScanner;
-import dev.frozenmilk.sinister.sdk.apphooks.WebHandlerRegistrar;
-import dev.frozenmilk.sinister.sdk.opmodes.OpModeScanner;
-import dev.frozenmilk.sinister.sdk.opmodes.SinisterRegisteredOpModes;
-import dev.frozenmilk.sinister.sdk.opmodes.TeleopAutonomousOpModeScanner;
-import dev.frozenmilk.sinister.targeting.NarrowSearch;
-import dev.frozenmilk.sinister.targeting.SearchTarget;
-import dev.frozenmilk.util.graph.Graph;
-import dev.frozenmilk.util.graph.rule.AdjacencyRule;
-import dev.frozenmilk.util.graph.rule.AdjacencyRules;
-import fi.iki.elonen.NanoHTTPD;
-import fi.iki.elonen.NanoWSD;
-import java.io.BufferedInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
-import java.lang.reflect.Proxy;
-import java.net.HttpURLConnection;
-import java.net.InetAddress;
-import java.net.URL;
-import java.nio.charset.Charset;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.SortedMap;
-import java.util.TreeMap;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
+
 import org.firstinspires.ftc.ftccommon.internal.FtcRobotControllerWatchdogService;
 import org.firstinspires.ftc.robotcore.external.Func;
 import org.firstinspires.ftc.robotcore.external.Telemetry;
@@ -95,11 +52,42 @@ import org.firstinspires.ftc.robotcore.external.function.Continuation;
 import org.firstinspires.ftc.robotcore.external.navigation.VoltageUnit;
 import org.firstinspires.ftc.robotcore.external.stream.CameraStreamSource;
 import org.firstinspires.ftc.robotcore.internal.opmode.OpModeMeta;
-import org.firstinspires.ftc.robotcore.internal.opmode.RegisteredOpModes;
 import org.firstinspires.ftc.robotcore.internal.system.AppUtil;
 import org.firstinspires.ftc.robotcore.internal.system.Misc;
 import org.firstinspires.ftc.robotcore.internal.webserver.WebHandler;
 import org.firstinspires.ftc.robotserver.internal.webserver.MimeTypesUtil;
+
+import java.io.BufferedInputStream;
+import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
+import java.net.HttpURLConnection;
+import java.net.InetAddress;
+import java.net.URL;
+import java.nio.charset.Charset;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.SortedMap;
+import java.util.TreeMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+
+import dev.frozenmilk.sinister.loading.Preload;
+import dev.frozenmilk.sinister.sdk.apphooks.OnCreate;
+import dev.frozenmilk.sinister.sdk.apphooks.OnCreateEventLoop;
+import dev.frozenmilk.sinister.sdk.apphooks.OnCreateMenu;
+import dev.frozenmilk.sinister.sdk.apphooks.OnDestroy;
+import dev.frozenmilk.sinister.sdk.apphooks.SinisterOpModeRegistrar;
+import dev.frozenmilk.sinister.sdk.apphooks.WebHandlerRegistrar;
+import dev.frozenmilk.sinister.sdk.opmodes.OpModeScanner;
+import dev.frozenmilk.sinister.sdk.opmodes.SinisterRegisteredOpModes;
+import fi.iki.elonen.NanoHTTPD;
+import fi.iki.elonen.NanoWSD;
 
 /**
  * Main class for interacting with the instance.
@@ -116,7 +104,9 @@ public class FtcDashboard implements OpModeManagerImpl.Notifications {
     private static final String PREFS_NAME = "FtcDashboard";
     private static final String PREFS_AUTO_ENABLE_KEY = "autoEnable";
 
-    private static FtcDashboard instance = new FtcDashboard();
+    private static final String HARDWARE_CATEGORY = "__hardware__";
+
+    private static FtcDashboard instance;
 
     @SuppressWarnings("unused")
     private static final SinisterOpModeRegistrar sinisterOpModeRegistrarHook = new SinisterOpModeRegistrar() {
@@ -275,9 +265,11 @@ public class FtcDashboard implements OpModeManagerImpl.Notifications {
 
     private final Mutex<OpModeAndStatus> activeOpMode = new Mutex<>(new OpModeAndStatus());
 
-    private final Mutex<List<String>> opModeList = new Mutex<>(new ArrayList<>());
+    private final Mutex<List<OpModeInfo>> opModeInfoList = new Mutex<>(new ArrayList<>());
 
     private ExecutorService gamepadWatchdogExecutor;
+    private ExecutorService logcatMonitorExecutor;
+    private LogcatMonitorRunnable logcatMonitorRunnable;
     private long lastGamepadTimestamp;
 
     private boolean webServerAttached;
@@ -294,18 +286,8 @@ public class FtcDashboard implements OpModeManagerImpl.Notifications {
     }
 
     public void sendOpModes() {
-        FtcDashboard.getInstance().opModeList.with(l -> {
-            l.clear();
-            for (OpModeMeta opModeMeta : SinisterRegisteredOpModes.INSTANCE.getOpModes()) {
-                if (opModeMeta.flavor != OpModeMeta.Flavor.SYSTEM) {
-                    l.add(opModeMeta.name);
-                }
-            }
-            Collections.sort(l);
-            getInstance().sendAll(new ReceiveOpModeList(l));
-        });
+        ThreadPool.getDefault().execute(new ListOpModesRunnable());
     }
-
     private class GamepadWatchdogRunnable implements Runnable {
         @Override
         public void run() {
@@ -334,16 +316,27 @@ public class FtcDashboard implements OpModeManagerImpl.Notifications {
     private class ListOpModesRunnable implements Runnable {
         @Override
         public void run() {
-            opModeList.with(l -> {
-                l.clear();
-                for (OpModeMeta opModeMeta : SinisterRegisteredOpModes.INSTANCE.getOpModes()) {
-                    if (opModeMeta.flavor != OpModeMeta.Flavor.SYSTEM) {
-                        l.add(opModeMeta.name);
-                    }
+            List<OpModeInfo> infoList = new ArrayList<>();
+            for (OpModeMeta opModeMeta : SinisterRegisteredOpModes.INSTANCE.getOpModes()) {
+                if (opModeMeta.flavor != OpModeMeta.Flavor.SYSTEM) {
+                    infoList.add(new OpModeInfo(opModeMeta.name, opModeMeta.group));
                 }
-                Collections.sort(l);
-                sendAll(new ReceiveOpModeList(l));
+            }
+
+            infoList.sort((a, b) -> {
+                int groupComparison = a.getGroup().compareToIgnoreCase(b.getGroup());
+                if (groupComparison != 0) {
+                    return groupComparison;
+                }
+                return a.getName().compareToIgnoreCase(b.getName());
             });
+
+            opModeInfoList.with(infoListShared -> {
+                infoListShared.clear();
+                infoListShared.addAll(infoList);
+            });
+
+            sendAll(new ReceiveOpModeList(infoList));
         }
     }
 
@@ -362,6 +355,121 @@ public class FtcDashboard implements OpModeManagerImpl.Notifications {
             });
         }
     }
+
+    private class LogcatMonitorRunnable implements Runnable {
+        private static final String OPMODE_MANAGER_TAG = "OpModeManager";
+        private volatile boolean running = true;
+
+        @Override
+        public void run() {
+            Process logcatProcess = null;
+            BufferedReader reader = null;
+
+            try {
+                // Start logcat process filtering for OpModeManager tag
+                ProcessBuilder pb = new ProcessBuilder("logcat", "-s", OPMODE_MANAGER_TAG + ":*");
+                logcatProcess = pb.start();
+                reader = new BufferedReader(new InputStreamReader(logcatProcess.getInputStream()));
+
+                String line;
+                List<ReceiveLogcatErrors.LogcatError> errorBuffer = new ArrayList<>();
+
+                while (running && (line = reader.readLine()) != null) {
+                    try {
+                        // Parse logcat line format: timestamp PID TID level tag: message
+                        // Example: "01-15 10:30:45.123  1234  1234 E OpModeManager: Error message"
+                        ReceiveLogcatErrors.LogcatError error = parseLogcatLine(line);
+                        if (error != null) {
+                            errorBuffer.add(error);
+
+                            // Send errors in batches to avoid flooding
+                            if (errorBuffer.size() >= 10) {
+                                sendAll(new ReceiveLogcatErrors(new ArrayList<>(errorBuffer)));
+                                errorBuffer.clear();
+                            }
+                        }
+                    } catch (Exception e) {
+                        // Log parsing error but continue monitoring
+                        RobotLog.ww(TAG, "Failed to parse logcat line: " + line);
+                    }
+
+                    // Small delay to prevent excessive CPU usage
+                    try {
+                        Thread.sleep(50);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
+                }
+
+                // Send any remaining errors
+                if (!errorBuffer.isEmpty()) {
+                    sendAll(new ReceiveLogcatErrors(errorBuffer));
+                }
+
+            } catch (IOException e) {
+                RobotLog.ww(TAG, "Failed to start logcat monitoring: " + e.getMessage());
+            } finally {
+                if (reader != null) {
+                    try {
+                        reader.close();
+                    } catch (IOException e) {
+                        // Ignore
+                    }
+                }
+                if (logcatProcess != null) {
+                    logcatProcess.destroy();
+                }
+            }
+        }
+
+        private ReceiveLogcatErrors.LogcatError parseLogcatLine(String line) {
+            try {
+                // Skip empty or invalid lines
+                if (line == null || line.trim().isEmpty()) {
+                    return null;
+                }
+
+                // Look for log level indicators (E, W, I, D, V)
+                String[] parts = line.split("\\s+", 6);
+                if (parts.length < 6) {
+                    return null;
+                }
+
+                // Extract components: timestamp, level, tag, message
+                String level = parts[4]; // Log level (E, W, I, etc.)
+                String tagAndMessage = parts[5];
+
+                // Split tag and message at the colon
+                int colonIndex = tagAndMessage.indexOf(':');
+                if (colonIndex == -1) {
+                    return null;
+                }
+
+                String tag = tagAndMessage.substring(0, colonIndex).trim();
+                String message = tagAndMessage.substring(colonIndex + 1).trim();
+
+                // Only process OpModeManager messages
+                if (!OPMODE_MANAGER_TAG.equals(tag)) {
+                    return null;
+                }
+
+                return new ReceiveLogcatErrors.LogcatError(
+                    System.currentTimeMillis(),
+                    level,
+                    tag,
+                    message
+                );
+            } catch (Exception e) {
+                return null;
+            }
+        }
+
+        public void stop() {
+            running = false;
+        }
+    }
+
     /**
      * Adapter to use dashboard telemetry like normal SDK telemetry. Note that this doesn't support
      * all of the operations yet.
@@ -783,9 +891,9 @@ public class FtcDashboard implements OpModeManagerImpl.Notifications {
         protected void onOpen() {
             sh.onOpen();
 
-            opModeList.with(l -> {
-                if (l.size() > 0) {
-                    send(new ReceiveOpModeList(l));
+            opModeInfoList.with(infoList -> {
+                if (!infoList.isEmpty()) {
+                    send(new ReceiveOpModeList(new ArrayList<>(infoList)));
                 }
             });
 
@@ -937,6 +1045,10 @@ public class FtcDashboard implements OpModeManagerImpl.Notifications {
         gamepadWatchdogExecutor = ThreadPool.newSingleThreadExecutor("gamepad watchdog");
         gamepadWatchdogExecutor.submit(new GamepadWatchdogRunnable());
 
+        logcatMonitorExecutor = ThreadPool.newSingleThreadExecutor("logcat monitor");
+        logcatMonitorRunnable = new LogcatMonitorRunnable();
+        logcatMonitorExecutor.submit(logcatMonitorRunnable);
+
         core.enabled = true;
 
         updateStatusView();
@@ -950,6 +1062,13 @@ public class FtcDashboard implements OpModeManagerImpl.Notifications {
         setAutoEnable(false);
 
         gamepadWatchdogExecutor.shutdownNow();
+
+        if (logcatMonitorRunnable != null) {
+            logcatMonitorRunnable.stop();
+        }
+        if (logcatMonitorExecutor != null) {
+            logcatMonitorExecutor.shutdownNow();
+        }
 
         stopCameraStream();
 
@@ -1248,6 +1367,30 @@ public class FtcDashboard implements OpModeManagerImpl.Notifications {
      */
     public void withConfigRoot(CustomVariableConsumer function) {
         core.withConfigRoot(function);
+    }
+
+    /**
+     * Runs {@code function} with the hardware subtree of the configuration root.
+     *
+     * <p>If the top-level hardware category ("{@value #HARDWARE_CATEGORY}") does not
+     * yet exist it will be created. The provided {@link CustomVariableConsumer} is
+     * invoked while holding the same exclusive config-root lock used by
+     * {@link #withConfigRoot(CustomVariableConsumer)}, so callers may safely modify the
+     * hardware config tree inside the consumer. Do not leak references to the
+     * config tree outside the consumer.</p>
+     *
+     * @param function consumer that receives the {@link CustomVariable} representing the
+     *                 hardware category and may modify it as needed
+     */
+    public void withHardwareRoot(CustomVariableConsumer function) {
+        withConfigRoot(root -> {
+            CustomVariable hardwareVar = (CustomVariable) root.getVariable(HARDWARE_CATEGORY);
+            if (hardwareVar == null) {
+                hardwareVar = new CustomVariable();
+                root.putVariable(HARDWARE_CATEGORY, hardwareVar);
+            }
+            function.accept(hardwareVar);
+        });
     }
 
     /**
